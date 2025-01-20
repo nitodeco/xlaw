@@ -13,3 +13,5 @@ eslint.config.mjs
 .husky/
 src/
 CONTRIBUTING.md
+!dist/
+.github/
