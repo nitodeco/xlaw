@@ -1,6 +1,6 @@
 {
   "name": "x-law",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A-Law and mu-Law codecs for JavaScript/TypeScript",
   "homepage": "https://github.com/nitodeco/xlaw",
   "author": "Nico Möhn <nitodeco@users.noreply.github.com>",
