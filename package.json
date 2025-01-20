@@ -38,7 +38,7 @@
     "format": "prettier --write .",
     "lint": "eslint --fix .",
     "precommit": "husky",
-    "build": "pnpm precommit && tsup"
+    "build": "npm run precommit && tsup"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
