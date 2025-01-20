@@ -1,5 +1,5 @@
 /**
- * @fileoverview mu-Law codec.
+ * @fileoverview μ-Law codec.
  */
 
 /** @module xlaw/mulaw */
@@ -19,6 +19,11 @@ const encodeTable: number[] = [
 
 const decodeTable: number[] = [0, 132, 396, 924, 1980, 4092, 8316, 16764];
 
+/**
+ * Encodes a single 16-bit PCM sample to 8-bit μ-Law.
+ * @param {number} sample - The input PCM sample (16-bit signed integer)
+ * @returns {number} The encoded 8-bit μ-Law sample
+ */
 export function encodeSample(sample: number): number {
   let sign: number;
   let exponent: number;
@@ -28,7 +33,7 @@ export function encodeSample(sample: number): number {
   /** get the sample into sign-magnitude **/
   sign = (sample >> 8) & 0x80;
   if (sign != 0) sample = -sample;
-  /** convert from 16 bit linear to ulaw **/
+  /** convert from 16 bit linear to μ-law **/
   sample = sample + BIAS;
   if (sample > CLIP) sample = CLIP;
   exponent = encodeTable[(sample >> 7) & 0xff];
@@ -38,6 +43,11 @@ export function encodeSample(sample: number): number {
   return muLawSample;
 }
 
+/**
+ * Decodes a single 8-bit μ-Law sample to 16-bit PCM.
+ * @param {number} muLawSample - The input μ-Law sample (8-bit unsigned integer)
+ * @returns {number} The decoded 16-bit PCM sample
+ */
 export function decodeSample(muLawSample: number): number {
   let sign: number;
   let exponent: number;
@@ -53,6 +63,11 @@ export function decodeSample(muLawSample: number): number {
   return sample;
 }
 
+/**
+ * Encodes an array of 16-bit PCM samples to 8-bit μ-Law samples.
+ * @param {Int16Array} samples - Array of 16-bit PCM samples to encode
+ * @returns {Uint8Array} Array of encoded 8-bit μ-Law samples
+ */
 export function encode(samples: Int16Array): Uint8Array {
   let muLawSamples: Uint8Array = new Uint8Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
@@ -61,6 +76,11 @@ export function encode(samples: Int16Array): Uint8Array {
   return muLawSamples;
 }
 
+/**
+ * Decodes an array of 8-bit μ-Law samples to 16-bit PCM samples.
+ * @param {Uint8Array} samples - Array of 8-bit μ-Law samples to decode
+ * @returns {Int16Array} Array of decoded 16-bit PCM samples
+ */
 export function decode(samples: Uint8Array): Int16Array {
   let pcmSamples: Int16Array = new Int16Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
