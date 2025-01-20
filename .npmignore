@@ -7,7 +7,7 @@ test/
 tsup.config.ts
 tsconfig.json
 pnpm-lock.yaml
-eslint.config.js
+eslint.config.mjs
 .prettierrc
 .prettierignore
 .husky/

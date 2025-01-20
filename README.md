@@ -1,8 +1,8 @@
-# xlaw - A-Law and mu-Law codecs in JavaScript/TypeScript
+# xlaw - A-Law and mu-Law codecs for JavaScript/TypeScript
 
-A rewrite of the [alawmulaw](https://github.com/rochars/alawmulaw) library. Adds some additional features as well as a modernized build process and TypeScript support.
+A rewrite of the [alawmulaw](https://github.com/rochars/alawmulaw) library in TypeScript, with a modernized build process and more features.
 
-This fork is primarily intended to be used in a backend environment.
+This package is primarily intended to be used in a backend environment.
 
 ## Install
 
