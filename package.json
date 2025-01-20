@@ -1,0 +1,54 @@
+{
+  "name": "xlaw",
+  "version": "0.1.0",
+  "description": "A-Law and mu-Law codecs for JavaScript/TypeScript",
+  "homepage": "https://github.com/nitodeco/xlaw",
+  "author": "Nico Möhn <nitodeco@users.noreply.github.com>",
+  "contributors": [
+    "Rafael da Silva Rocha <rocha.rafaelsilva@gmail.com>"
+  ],
+  "license": "MIT",
+  "main": "./dist/xlaw.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "engines": {
+    "node": ">=18"
+  },
+  "type": "module",
+  "keywords": [
+    "A-Law",
+    "mu-Law",
+    "audio",
+    "codec",
+    "encode",
+    "decode",
+    "compander",
+    "companding",
+    "PCM",
+    "streaming"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/nitodeco/xlaw.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nitodeco/xlaw/issues"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "lint": "eslint --fix .",
+    "precommit": "husky",
+    "build": "pnpm precommit && tsup"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "globals": "^15.14.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.4.2",
+    "tsup": "^8.3.5",
+    "typescript": "^4.5.0",
+    "typescript-eslint": "^8.21.0"
+  }
+}

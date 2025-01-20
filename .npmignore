@@ -1,0 +1,14 @@
+*.log
+.DS_Store
+docs/
+test/
+.gitignore
+.npmignore
+tsup.config.ts
+tsconfig.json
+pnpm-lock.yaml
+eslint.config.js
+.prettierrc
+.prettierignore
+.husky/
+src/
