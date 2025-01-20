@@ -90,13 +90,6 @@ export function encode(samples) {}
 export function decode(samples) {}
 ```
 
-## References
-
-https://github.com/rochars/alawmulaw  
-https://github.com/torvalds/linux/blob/master/sound/core/oss/mulaw.c  
-https://github.com/deftio/companders  
-http://dystopiancode.blogspot.com.br/2012/02/pcm-law-and-u-law-companding-algorithms.html
-
 ### LICENSE
 
 This project is licensed under the MIT license. See [LICENSE](LICENSE) for more details.

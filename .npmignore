@@ -12,3 +12,4 @@ eslint.config.mjs
 .prettierignore
 .husky/
 src/
+CONTRIBUTING.md

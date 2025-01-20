@@ -8,11 +8,11 @@
     "Rafael da Silva Rocha <rocha.rafaelsilva@gmail.com>"
   ],
   "license": "MIT",
-  "main": "./dist/xlaw.js",
-  "module": "./index.js",
-  "types": "./index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=16"
   },
   "type": "module",
   "keywords": [
