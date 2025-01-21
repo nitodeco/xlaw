@@ -28,6 +28,11 @@ jobs:
         with:
           default_author: github_actions
           message: "Generate docs (#${{ github.run_number}})"
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docs
+          path: docs/
 
   deploy:
     needs: generate-docs
@@ -36,8 +41,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Download docs artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: docs
+          path: docs
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
