@@ -2,7 +2,7 @@
   "name": "x-law",
   "version": "0.1.3",
   "description": "A-Law and mu-Law codecs for JavaScript/TypeScript",
-  "homepage": "https://github.com/nitodeco/xlaw",
+  "homepage": "https://nitodeco.github.io/xlaw/",
   "author": "Nico Möhn <nitodeco@users.noreply.github.com>",
   "contributors": [
     "Rafael da Silva Rocha <rocha.rafaelsilva@gmail.com>"

@@ -1,7 +1,18 @@
 <p align="center">
   <h1 align="center">x-law</h1>
+  <p align="center">
+    <a href="https://www.npmjs.com/package/x-law">
+      <img src="https://img.shields.io/npm/v/x-law.svg" alt="NPM" />
+    </a>
+    <a href="https://nitodeco.github.io/xlaw/">
+      <img src="https://img.shields.io/badge/docs-online-blue.svg" alt="Docs" />
+    </a>
+    <a href="https://github.com/nitodeco/xlaw/blob/main/LICENSE">
+      <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License" />
+    </a>
+  </p>
   <h3 align="center">
-    A-Law, μ-Law and common audio utilites for JavaScript/TypeScript. 
+    A-Law, μ-Law and common audio utilites for JavaScript/TypeScript
   </h3>
 </p>
 
