@@ -5,7 +5,7 @@ on:
     branches: ["main"]
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -28,7 +28,9 @@ jobs:
         with:
           default_author: github_actions
           message: "Generate docs (#${{ github.run_number}})"
+
   deploy:
+    needs: generate-docs
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
