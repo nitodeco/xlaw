@@ -1,6 +1,6 @@
 {
   "name": "x-law",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A-Law and mu-Law codecs for JavaScript/TypeScript",
   "homepage": "https://github.com/nitodeco/xlaw",
   "author": "Nico Möhn <nitodeco@users.noreply.github.com>",
@@ -36,19 +36,14 @@
   },
   "scripts": {
     "format": "prettier --write .",
-    "lint": "eslint --fix .",
     "precommit": "husky",
     "build": "npm run precommit && tsup"
   },
   "devDependencies": {
-    "@eslint/js": "^9.18.0",
-    "eslint": "^9.18.0",
-    "eslint-config-prettier": "^10.0.1",
-    "globals": "^15.14.0",
+    "@types/node": "^22.10.7",
     "husky": "^9.1.7",
     "prettier": "^3.4.2",
     "tsup": "^8.3.5",
-    "typescript": "^4.5.0",
-    "typescript-eslint": "^8.21.0"
+    "typescript": "^4.5.0"
   }
 }
