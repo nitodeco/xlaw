@@ -11,3 +11,8 @@ export namespace mulaw {
   function encode(samples: Int16Array): Uint8Array;
   function encodeSample(sample: number): number;
 }
+
+export namespace utils {
+  function calculateRms(buffer: number[], bitDepth: number): number;
+  function calculateLufs(buffer: number[], bitDepth: number, sampleRate: number): number;
+}
