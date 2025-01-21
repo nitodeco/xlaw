@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">xlaw</h1>
+  <h1 align="center">x-law</h1>
   <h3 align="center">
     A-Law, μ-Law and common audio utilites for JavaScript/TypeScript. 
   </h3>
@@ -20,13 +20,13 @@ npm install x-law
 CommonJS:
 
 ```javascript
-const xlaw = require("xlaw");
+const xlaw = require("x-law");
 ```
 
 ESM:
 
 ```javascript
-import xlaw from "xlaw";
+import xlaw from "x-law";
 ```
 
 ## API
