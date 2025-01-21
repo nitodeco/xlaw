@@ -1,13 +1,18 @@
-# xlaw - A-Law and mu-Law codecs for JavaScript/TypeScript
+<p align="center">
+  <h1 align="center">xlaw</h1>
+  <h3 align="center">
+    A-Law, μ-Law and common audio utilites for JavaScript/TypeScript. 
+  </h3>
+</p>
 
-A rewrite of the [alawmulaw](https://github.com/rochars/alawmulaw) library in TypeScript, with a modernized build process and more features.
+This package started as a rewrite of the [alawmulaw](https://github.com/rochars/alawmulaw) library in TypeScript for a modernized build process and updated dependencies. It adds additional utilities and features for processing audio data, such as loudness calculation, more flexible encoding/decoding, and more.
 
-This package is primarily intended to be used in a backend environment.
+Primarily intended for use in a backend environment.
 
 ## Install
 
 ```
-npm install xlaw
+npm install x-law
 ```
 
 ## Usage

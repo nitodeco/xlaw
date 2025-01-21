@@ -1,8 +1,7 @@
 /**
- * @fileoverview μ-Law codec.
+ * @module x-law/mulaw
+ * μ-Law codec.
  */
-
-/** @module x-law/mulaw */
 
 const BIAS: number = 0x84;
 const CLIP: number = 32635;

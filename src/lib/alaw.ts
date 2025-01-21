@@ -1,8 +1,7 @@
 /**
- * @fileoverview A-Law codec.
+ * @module x-law/alaw
+ * A-Law codec.
  */
-
-/** @module x-law/alaw */
 
 const LOG_TABLE: number[] = [
   1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6,

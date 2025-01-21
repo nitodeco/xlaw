@@ -1,8 +1,7 @@
 /**
- * @fileoverview Utility functions for common audio processing tasks.
+ * @module x-law/utils
+ * Utility functions for common audio processing tasks.
  */
-
-/** @module x-law/utils */
 
 const BIT_DEPTHS: number[] = [8, 16, 24, 32];
 
