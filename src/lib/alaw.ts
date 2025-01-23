@@ -3,6 +3,13 @@
  * A-Law codec.
  */
 
+import { BitDepth } from "./types";
+import { requantizeSample } from "./utils";
+import { SIGN_SHIFT, MANTISSA_MASK } from "./constants";
+import { validateSample } from "./internal";
+const ALAW_XOR = 0x55;
+const SEGMENT_SHIFT = 4;
+
 const LOG_TABLE: number[] = [
   1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6,
   6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
@@ -11,76 +18,89 @@ const LOG_TABLE: number[] = [
 ];
 
 /**
- * Encodes a single 16-bit PCM sample to 8-bit A-Law.
- * @param {number} sample - The input PCM sample (16-bit signed integer)
+ * Encodes a single PCM sample of arbitrary bit depth to 8-bit A-Law.
+ * @param {number} sample - The input PCM sample
+ * @param {BitDepth} inputBitDepth - The bit depth of the input sample (default: 16)
  * @returns {number} The encoded 8-bit A-Law sample
  */
-export function encodeSample(sample: number): number {
-  let compandedValue: number;
-  sample = sample == -32768 ? -32767 : sample;
-  let sign = (~sample >> 8) & 0x80;
+export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): number {
+  let scaledSample = requantizeSample(sample, inputBitDepth, 16).sample;
+  validateSample(scaledSample, 32767);
+  scaledSample = scaledSample == -32768 ? -32767 : scaledSample;
+  let sign = (~scaledSample >> SIGN_SHIFT) & 0x80;
+
   if (!sign) {
-    sample = sample * -1;
+    scaledSample = scaledSample * -1;
   }
-  if (sample > 32635) {
-    sample = 32635;
-  }
-  if (sample >= 256) {
-    let exponent: number = LOG_TABLE[(sample >> 8) & 0x7f];
-    let mantissa: number = (sample >> (exponent + 3)) & 0x0f;
-    compandedValue = (exponent << 4) | mantissa;
+
+  scaledSample = Math.min(scaledSample, 32635);
+
+  let compandedValue: number;
+  if (scaledSample >= 256) {
+    let exponent: number = LOG_TABLE[(scaledSample >> SIGN_SHIFT) & 0x7f];
+    let mantissa: number = (scaledSample >> (exponent + 3)) & MANTISSA_MASK;
+    compandedValue = (exponent << SEGMENT_SHIFT) | mantissa;
   } else {
-    compandedValue = sample >> 4;
+    compandedValue = scaledSample >> SEGMENT_SHIFT;
   }
-  return compandedValue ^ (sign ^ 0x55);
+
+  return compandedValue ^ (sign ^ ALAW_XOR);
 }
 
 /**
- * Decodes a single 8-bit A-Law sample to 16-bit PCM.
+ * Decodes a single 8-bit A-Law sample to PCM of arbitrary bit depth.
  * @param {number} aLawSample - The input A-Law sample (8-bit unsigned integer)
- * @returns {number} The decoded 16-bit PCM sample
+ * @param {BitDepth} targetBitDepth - The target bit depth of the output (default: 16)
+ * @returns {number} The decoded PCM sample, properly scaled to the target bit depth
  */
-export function decodeSample(aLawSample: number): number {
+export function decodeSample(aLawSample: number, targetBitDepth: BitDepth = 16): number {
   let sign: number = 0;
-  aLawSample ^= 0x55;
+  aLawSample ^= ALAW_XOR;
+
   if (aLawSample & 0x80) {
     aLawSample &= ~(1 << 7);
     sign = -1;
   }
 
-  const position: number = ((aLawSample & 0xf0) >> 4) + 4;
+  const position: number = ((aLawSample & 0xf0) >> SEGMENT_SHIFT) + 4;
   let decoded: number = 0;
+
   if (position != 4) {
-    decoded = (1 << position) | ((aLawSample & 0x0f) << (position - 4)) | (1 << (position - 5));
+    decoded = (1 << position) | ((aLawSample & MANTISSA_MASK) << (position - 4)) | (1 << (position - 5));
   } else {
     decoded = (aLawSample << 1) | 1;
   }
+
   decoded = sign === 0 ? decoded : -decoded;
-  return decoded * 8 * -1;
+  decoded = decoded * 8 * -1;
+
+  return requantizeSample(decoded, 16, targetBitDepth).sample;
 }
 
 /**
- * Encodes an array of 16-bit PCM samples to 8-bit A-Law samples.
- * @param {Int16Array} samples - Array of 16-bit PCM samples to encode
+ * Encodes an array of PCM samples to 8-bit A-Law samples.
+ * @param {Int16Array} samples - Array of PCM samples to encode
+ * @param {BitDepth} inputBitDepth - The bit depth of the input samples (default: 16)
  * @returns {Uint8Array} Array of encoded 8-bit A-Law samples
  */
-export function encode(samples: Int16Array): Uint8Array {
+export function encode(samples: Int16Array, inputBitDepth: BitDepth = 16): Uint8Array {
   const aLawSamples: Uint8Array = new Uint8Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
-    aLawSamples[i] = encodeSample(samples[i]);
+    aLawSamples[i] = encodeSample(samples[i], inputBitDepth);
   }
   return aLawSamples;
 }
 
 /**
- * Decodes an array of 8-bit A-Law samples to 16-bit PCM samples.
+ * Decodes an array of 8-bit A-Law samples to PCM samples.
  * @param {Uint8Array} samples - Array of 8-bit A-Law samples to decode
- * @returns {Int16Array} Array of decoded 16-bit PCM samples
+ * @param {BitDepth} targetBitDepth - The target bit depth of the output (default: 16)
+ * @returns {Int16Array} Array of decoded PCM samples
  */
-export function decode(samples: Uint8Array): Int16Array {
+export function decode(samples: Uint8Array, targetBitDepth: BitDepth = 16): Int16Array {
   const pcmSamples: Int16Array = new Int16Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
-    pcmSamples[i] = decodeSample(samples[i]);
+    pcmSamples[i] = decodeSample(samples[i], targetBitDepth);
   }
   return pcmSamples;
 }

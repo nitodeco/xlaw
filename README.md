@@ -40,71 +40,96 @@ ESM:
 import xlaw from "x-law";
 ```
 
-## API
+## Examples
 
-### xlaw.alaw
-
-```javascript
-/**
- * Encode a 16-bit linear PCM sample as 8-bit A-Law.
- * @param {number} sample A 16-bit PCM sample
- * @return {number}
- */
-export function encodeSample(sample) {}
-
-/**
- * Decode a 8-bit A-Law sample as 16-bit PCM.
- * @param {number} aLawSample The 8-bit A-Law sample
- * @return {number}
- */
-export function decodeSample(aLawSample) {}
-
-/**
- * Encode 16-bit linear PCM samples as 8-bit A-Law samples.
- * @param {!Int16Array} samples A array of 16-bit PCM samples.
- * @return {!Uint8Array}
- */
-export function encode(samples) {}
-
-/**
- * Decode 8-bit A-Law samples into 16-bit linear PCM samples.
- * @param {!Uint8Array} samples A array of 8-bit A-Law samples.
- * @return {!Int16Array}
- */
-export function decode(samples) {}
-```
-
-### xlaw.mulaw
+### Basic Usage
 
 ```javascript
-/**
- * Encode a 16-bit linear PCM sample as 8-bit mu-Law.
- * @param {number} sample A 16-bit PCM sample
- * @return {number}
- */
-export function encodeSample(sample) {}
+import xlaw from "x-law";
 
-/**
- * Decode a 8-bit mu-Law sample as 16-bit PCM.
- * @param {number} muLawSample The 8-bit mu-Law sample
- * @return {number}
- */
-export function decodeSample(muLawSample) {}
+// Convert between PCM and μ-Law/A-Law
+const pcmSamples = new Int16Array([
+  /* 16-bit PCM samples */
+]);
 
-/**
- * Encode 16-bit linear PCM samples into 8-bit mu-Law samples.
- * @param {!Int16Array} samples A array of 16-bit PCM samples.
- * @return {!Uint8Array}
- */
-export function encode(samples) {}
+// Encode to μ-Law
+const mulawSamples = xlaw.mulaw.encode(pcmSamples);
+// Decode back to PCM
+const decodedPcm = xlaw.mulaw.decode(mulawSamples);
 
-/**
- * Decode 8-bit mu-Law samples into 16-bit PCM samples.
- * @param {!Uint8Array} samples A array of 8-bit mu-Law samples.
- * @return {!Int16Array}
- */
-export function decode(samples) {}
+// Encode to A-Law
+const alawSamples = xlaw.alaw.encode(pcmSamples);
+// Decode back to PCM
+const decodedAlawPcm = xlaw.alaw.decode(alawSamples);
 ```
+
+### Working with Different Bit Depths
+
+```javascript
+import xlaw from "x-law";
+
+// Convert 24-bit PCM to 8-bit μ-Law
+const pcm24bit = new Int32Array([
+  /* 24-bit PCM samples */
+]);
+const mulaw = xlaw.mulaw.encode(pcm24bit, 24);
+
+// Decode μ-Law to 32-bit PCM
+const pcm32bit = xlaw.mulaw.decode(mulaw, 32);
+
+// Single sample conversion
+const singleMulaw = xlaw.mulaw.encodeSample(pcmSample, 24); // 24-bit PCM to μ-Law
+const singlePcm = xlaw.mulaw.decodeSample(mulawSample, 32); // μ-Law to 32-bit PCM
+```
+
+### Audio Processing Utilities
+
+```javascript
+import xlaw from "x-law";
+
+// Calculate audio loudness (RMS)
+const rmsDb = xlaw.utils.calculateRms(pcmSamples, 16); // For 16-bit PCM
+console.log(`Loudness: ${rmsDb} dB`);
+
+// Calculate LUFS loudness
+const lufs = xlaw.utils.calculateLufs(pcmSamples, 16, 44100);
+console.log(`Integrated loudness: ${lufs} LUFS`);
+
+// Resample audio
+const pcm48k = new Int16Array([
+  /* 48kHz PCM samples */
+]);
+const pcm16k = xlaw.utils.resample(pcm48k, 48000, 16000);
+
+// Change bit depth with dithering
+const pcm16bit = new Int16Array([
+  /* 16-bit PCM samples */
+]);
+const pcm8bit = xlaw.utils.requantize(pcm16bit, 16, 8);
+```
+
+### Saving PCM to a WAV file
+
+```javascript
+import fs from "fs";
+import xlaw from "x-law";
+
+// Create a WAV header for mono 16-bit PCM at 44.1kHz
+const dataSize = pcmSamples.byteLength;
+const wavHeader = xlaw.utils.createWavHeader(dataSize, 44100, 1, 16);
+
+// Combine header with audio data
+const wavFile = Buffer.concat([wavHeader, Buffer.from(pcmSamples.buffer)]);
+
+// Save to file
+fs.writeFileSync("output.wav", wavFile);
+```
+
+You can find the full documentation [here](https://nitodeco.github.io/xlaw/).
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ### LICENSE
 
