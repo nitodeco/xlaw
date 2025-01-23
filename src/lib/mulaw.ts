@@ -3,6 +3,9 @@
  * μ-Law codec.
  */
 
+import { BitDepth } from "./types";
+import { requantizeSample } from "./utils";
+
 const BIAS: number = 0x84;
 const CLIP: number = 32635;
 
@@ -19,47 +22,43 @@ const encodeTable: number[] = [
 const decodeTable: number[] = [0, 132, 396, 924, 1980, 4092, 8316, 16764];
 
 /**
- * Encodes a single 16-bit PCM sample to 8-bit μ-Law.
- * @param {number} sample - The input PCM sample (16-bit signed integer)
+ * Encodes a single PCM sample of arbitrary bit depth and sample rate to 8-bit μ-Law.
+ * @param {number} sample - The input PCM sample
+ * @param {BitDepth} inputBitDepth - The bit depth of the input sample (default: 16)
  * @returns {number} The encoded 8-bit μ-Law sample
  */
-export function encodeSample(sample: number): number {
-  let sign: number;
-  let exponent: number;
-  let mantissa: number;
-  let muLawSample: number;
+export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): number {
+  let scaledSample = requantizeSample(sample, inputBitDepth, 16).sample;
 
-  /** get the sample into sign-magnitude **/
-  sign = (sample >> 8) & 0x80;
-  if (sign != 0) sample = -sample;
-  /** convert from 16 bit linear to μ-law **/
-  sample = sample + BIAS;
-  if (sample > CLIP) sample = CLIP;
-  exponent = encodeTable[(sample >> 7) & 0xff];
-  mantissa = (sample >> (exponent + 3)) & 0x0f;
-  muLawSample = ~(sign | (exponent << 4) | mantissa);
+  let sign = (scaledSample >> 8) & 0x80;
+  if (sign !== 0) scaledSample = -scaledSample;
 
-  return muLawSample;
+  scaledSample += BIAS;
+  if (scaledSample > CLIP) scaledSample = CLIP;
+
+  let exponent = encodeTable[(scaledSample >> 7) & 0xff];
+  let mantissa = (scaledSample >> (exponent + 3)) & 0x0f;
+  let muLawSample = ~(sign | (exponent << 4) | mantissa);
+
+  return muLawSample & 0xff;
 }
 
 /**
- * Decodes a single 8-bit μ-Law sample to 16-bit PCM.
+ * Decodes a single 8-bit μ-Law sample to a PCM sample of arbitrary bit depth and sample rate.
  * @param {number} muLawSample - The input μ-Law sample (8-bit unsigned integer)
- * @returns {number} The decoded 16-bit PCM sample
+ * @param {BitDepth} targetBitDepth - The target bit depth of the output (default: 16)
+ * @returns {number} The decoded PCM sample, properly scaled to the target bit depth
  */
-export function decodeSample(muLawSample: number): number {
-  let sign: number;
-  let exponent: number;
-  let mantissa: number;
-  let sample: number;
-
+export function decodeSample(muLawSample: number, targetBitDepth: BitDepth = 16): number {
   muLawSample = ~muLawSample;
-  sign = muLawSample & 0x80;
-  exponent = (muLawSample >> 4) & 0x07;
-  mantissa = muLawSample & 0x0f;
-  sample = decodeTable[exponent] + (mantissa << (exponent + 3));
-  if (sign != 0) sample = -sample;
-  return sample;
+  let sign = muLawSample & 0x80;
+  let exponent = (muLawSample >> 4) & 0x07;
+  let mantissa = muLawSample & 0x0f;
+
+  let decoded16 = decodeTable[exponent] + (mantissa << (exponent + 3));
+  if (sign !== 0) decoded16 = -decoded16;
+
+  return requantizeSample(decoded16, 16, targetBitDepth).sample;
 }
 
 /**
@@ -67,10 +66,10 @@ export function decodeSample(muLawSample: number): number {
  * @param {Int16Array} samples - Array of 16-bit PCM samples to encode
  * @returns {Uint8Array} Array of encoded 8-bit μ-Law samples
  */
-export function encode(samples: Int16Array): Uint8Array {
+export function encode(samples: Int16Array, inputBitDepth: BitDepth = 16): Uint8Array {
   let muLawSamples: Uint8Array = new Uint8Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
-    muLawSamples[i] = encodeSample(samples[i]);
+    muLawSamples[i] = encodeSample(samples[i], inputBitDepth);
   }
   return muLawSamples;
 }
@@ -80,10 +79,10 @@ export function encode(samples: Int16Array): Uint8Array {
  * @param {Uint8Array} samples - Array of 8-bit μ-Law samples to decode
  * @returns {Int16Array} Array of decoded 16-bit PCM samples
  */
-export function decode(samples: Uint8Array): Int16Array {
+export function decode(samples: Uint8Array, targetBitDepth: BitDepth = 16): Int16Array {
   let pcmSamples: Int16Array = new Int16Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
-    pcmSamples[i] = decodeSample(samples[i]);
+    pcmSamples[i] = decodeSample(samples[i], targetBitDepth);
   }
   return pcmSamples;
 }
