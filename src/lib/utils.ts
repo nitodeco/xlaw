@@ -140,7 +140,7 @@ export function createWavHeader(dataSize: number, sampleRate: number, channels: 
 
 /**
  * Generates Triangular Probability Density Function (TPDF) dither.
- * TPDF provides better noise characteristics than uniform dithering.
+ * Randomizes quantization errors, reduces distortion and creates a stable noise floor for more natural sound.
  * @param bitDepth - Target bit depth for dither generation
  * @returns Dither value scaled to the target bit depth
  */
@@ -176,6 +176,10 @@ export const requantizeSample = (
   targetBitDepth: BitDepth,
   previousError = 0
 ): { sample: number; error: number } => {
+  if (inputBitDepth == targetBitDepth) {
+    throw new Error("Input and target bit depths must be different");
+  }
+
   const maxInputValue = (1 << (inputBitDepth - 1)) - 1;
   if (Math.abs(sample) > maxInputValue) {
     throw new Error(`Sample value exceeds ${inputBitDepth}-bit range`);
@@ -183,28 +187,25 @@ export const requantizeSample = (
 
   const bitDifference = inputBitDepth - targetBitDepth;
 
-  if (bitDifference > 0) {
-    let processedSample = sample + generateTPDFDither(targetBitDepth);
-    processedSample = applyNoiseShaping(processedSample, previousError);
-
-    const quantized = Math.round(processedSample / (1 << bitDifference)) * (1 << bitDifference);
-    const currentError = processedSample - quantized;
-
-    const result = Math.max(
-      -maxInputValue,
-      Math.min(maxInputValue, Math.round(processedSample / (1 << bitDifference)))
-    );
-
-    return {
-      sample: result,
-      error: currentError,
-    };
-  } else {
+  if (bitDifference < 0) {
     return {
       sample: sample << Math.abs(bitDifference),
       error: 0,
     };
   }
+
+  let processedSample = sample + generateTPDFDither(targetBitDepth);
+  processedSample = applyNoiseShaping(processedSample, previousError);
+
+  const quantized = Math.round(processedSample / (1 << bitDifference)) * (1 << bitDifference);
+  const currentError = processedSample - quantized;
+
+  const result = Math.max(-maxInputValue, Math.min(maxInputValue, Math.round(processedSample / (1 << bitDifference))));
+
+  return {
+    sample: result,
+    error: currentError,
+  };
 };
 
 /**
