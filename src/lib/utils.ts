@@ -3,7 +3,7 @@
  * Utility functions for common audio processing tasks.
  */
 
-import { BitDepth } from "./types";
+import { BitDepth, Channels } from "./types";
 
 const BIT_DEPTHS: BitDepth[] = [8, 16, 24, 32];
 
@@ -44,12 +44,12 @@ export function calculateRms(samples: number[], bitDepth: number): number {
 /**
  * Computes the integrated LUFS loudness of a PCM buffer.
  *
- * @param samples - Array of PCM samples.
- * @param bitDepth - The bit depth of the PCM audio (8, 16, 24, or 32).
- * @param sampleRate - The sample rate in Hz (currently unused).
- * @returns The integrated loudness in LUFS.
+ * @param samples - Array of PCM samples
+ * @param bitDepth - The bit depth of the PCM audio (8, 16, 24, or 32)
+ * @param sampleRate - The sample rate in Hz (currently unused)
+ * @returns The integrated loudness in LUFS
  *
- * @throws {Error} If the buffer is empty, the bit depth is invalid, or the sample rate is non-positive.
+ * @throws {Error} If the buffer is empty, the bit depth is invalid, or the sample rate is non-positive
  */
 export function calculateLufs(samples: number[], bitDepth: number, sampleRate: number): number {
   if (!samples.length) {
@@ -92,7 +92,7 @@ export function calculateLufs(samples: number[], bitDepth: number, sampleRate: n
 }
 
 /**
- * Creates a WAV header for a given data size, sample rate, and number of channels
+ * Creates a WAV header for a given data size, sample rate, and number of channels.
  *
  * @param dataSize - Size of the data in bytes
  * @param sampleRate - Sample rate of the audio in Hz
@@ -100,7 +100,7 @@ export function calculateLufs(samples: number[], bitDepth: number, sampleRate: n
  * @param bitDepth - Bit depth of the audio
  * @returns Buffer containing WAV header
  */
-export function createWavHeader(dataSize: number, sampleRate: number, channels: number, bitDepth: BitDepth): Buffer {
+export function createWavHeader(dataSize: number, sampleRate: number, channels: Channels, bitDepth: BitDepth): Buffer {
   // https://docs.fileformat.com/audio/wav/
   const headerData = [
     { value: "RIFF", type: "string" },
@@ -136,3 +136,120 @@ export function createWavHeader(dataSize: number, sampleRate: number, channels: 
 
   return header;
 }
+
+/**
+ * Generates Triangular Probability Density Function (TPDF) dither.
+ * TPDF provides better noise characteristics than uniform dithering.
+ * @param bitDepth - Target bit depth for dither generation
+ * @returns Dither value scaled to the target bit depth
+ */
+const generateTPDFDither = (bitDepth: number): number => {
+  const r1 = Math.random() * 2 - 1;
+  const r2 = Math.random() * 2 - 1;
+  return (r1 + r2) * (1 << (bitDepth - 1));
+};
+
+/**
+ * Applies simple noise shaping to reduce perceived quantization noise.
+ * @param sample - Input sample to process
+ * @param error - Previous sample's quantization error
+ * @returns Processed sample with noise shaping applied
+ */
+const applyNoiseShaping = (sample: number, error: number): number => {
+  const shapingCoeff = -1.5;
+  return sample + error * shapingCoeff;
+};
+
+/**
+ * Requantizes a PCM sample to a different bit depth with dithering and noise shaping.
+ * @param sample - Input PCM sample.
+ * @param inputBitDepth - Original bit depth of the sample
+ * @param targetBitDepth - Desired output bit depth
+ * @param previousError - Previous sample's quantization error for noise shaping
+ * @returns Object containing the processed sample and its quantization error
+ * @throws {Error} If sample value exceeds the valid range for input bit depth
+ */
+export const requantizeSample = (
+  sample: number,
+  inputBitDepth: BitDepth,
+  targetBitDepth: BitDepth,
+  previousError = 0
+): { sample: number; error: number } => {
+  const maxInputValue = (1 << (inputBitDepth - 1)) - 1;
+  if (Math.abs(sample) > maxInputValue) {
+    throw new Error(`Sample value exceeds ${inputBitDepth}-bit range`);
+  }
+
+  const bitDifference = inputBitDepth - targetBitDepth;
+
+  if (bitDifference > 0) {
+    let processedSample = sample + generateTPDFDither(targetBitDepth);
+    processedSample = applyNoiseShaping(processedSample, previousError);
+
+    const quantized = Math.round(processedSample / (1 << bitDifference)) * (1 << bitDifference);
+    const currentError = processedSample - quantized;
+
+    const result = Math.max(
+      -maxInputValue,
+      Math.min(maxInputValue, Math.round(processedSample / (1 << bitDifference)))
+    );
+
+    return {
+      sample: result,
+      error: currentError,
+    };
+  } else {
+    return {
+      sample: sample << Math.abs(bitDifference),
+      error: 0,
+    };
+  }
+};
+
+/**
+ * Requantizes an array of audio samples to a different bit depth.
+ * Applies TPDF dithering and noise shaping across the entire array.
+ * @param samples - Array of input audio samples
+ * @param inputBitDepth - Original bit depth of the samples
+ * @param targetBitDepth - Desired output bit depth
+ * @returns Array of requantized samples
+ */
+export const requantize = (samples: number[], inputBitDepth: BitDepth, targetBitDepth: BitDepth): number[] => {
+  let lastError = 0;
+
+  return samples.map((sample) => {
+    const result = requantizeSample(sample, inputBitDepth, targetBitDepth, lastError);
+    lastError = result.error;
+    return result.sample;
+  });
+};
+
+/**
+ * Resamples PCM samples from one sample rate to another.
+ * @param samples - Array of PCM samples
+ * @param inputSampleRate - The sample rate of the input samples
+ * @param targetSampleRate - The target sample rate
+ * @returns Array of resampled PCM samples
+ */
+export const resample = (samples: number[], inputSampleRate: number, targetSampleRate: number) => {
+  if (inputSampleRate <= 0 || targetSampleRate <= 0) {
+    throw new Error("Sample rates must be positive");
+  }
+
+  const ratio = targetSampleRate / inputSampleRate;
+  const resampled = [];
+
+  for (let i = 0; i < samples.length * ratio; i++) {
+    const position = i / ratio;
+    const index1 = Math.floor(position);
+    const index2 = Math.min(index1 + 1, samples.length - 1);
+
+    const alpha = position - index1;
+
+    const interpolatedValue = samples[index1] * (1 - alpha) + samples[index2] * alpha;
+
+    resampled.push(interpolatedValue);
+  }
+
+  return resampled;
+};
