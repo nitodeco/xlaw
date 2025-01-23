@@ -127,6 +127,10 @@ fs.writeFileSync("output.wav", wavFile);
 
 You can find the full documentation [here](https://nitodeco.github.io/xlaw/).
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+
 ### LICENSE
 
 This project is licensed under the MIT license. See [LICENSE](LICENSE) for more details.
