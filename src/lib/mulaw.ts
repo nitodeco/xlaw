@@ -6,6 +6,7 @@
 import { BitDepth } from "./types";
 import { requantizeSample } from "./utils";
 import { SIGN_SHIFT, MANTISSA_MASK } from "./constants";
+import { validateSample } from "./internal";
 
 const BIAS = 0x84;
 const CLIP = 32635;
@@ -32,6 +33,7 @@ const decodeTable: number[] = [0, 132, 396, 924, 1980, 4092, 8316, 16764];
  */
 export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): number {
   let scaledSample = requantizeSample(sample, inputBitDepth, 16).sample;
+  validateSample(scaledSample, 32767);
 
   let sign = (scaledSample >> SIGN_SHIFT) & 0x80;
   if (sign !== 0) scaledSample = -scaledSample;

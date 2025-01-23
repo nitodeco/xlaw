@@ -6,7 +6,7 @@
 import { BitDepth } from "./types";
 import { requantizeSample } from "./utils";
 import { SIGN_SHIFT, MANTISSA_MASK } from "./constants";
-
+import { validateSample } from "./internal";
 const ALAW_XOR = 0x55;
 const SEGMENT_SHIFT = 4;
 
@@ -25,7 +25,7 @@ const LOG_TABLE: number[] = [
  */
 export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): number {
   let scaledSample = requantizeSample(sample, inputBitDepth, 16).sample;
-
+  validateSample(scaledSample, 32767);
   scaledSample = scaledSample == -32768 ? -32767 : scaledSample;
   let sign = (~scaledSample >> SIGN_SHIFT) & 0x80;
 
