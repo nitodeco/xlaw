@@ -46,10 +46,10 @@ export function calculateRms(samples: number[], bitDepth: number): number {
  *
  * @param samples - Array of PCM samples
  * @param bitDepth - The bit depth of the PCM audio (8, 16, 24, or 32)
- * @param sampleRate - The sample rate in Hz (currently unused)
+ * @param sampleRate - The sample rate in Hz
  * @returns The integrated loudness in LUFS
  *
- * @throws {Error} If the buffer is empty, the bit depth is invalid, or the sample rate is non-positive
+ * @throws {Error} If the buffer is empty, bit depth is invalid, or sample rate is non-positive
  */
 export function calculateLufs(samples: number[], bitDepth: number, sampleRate: number): number {
   if (!samples.length) {
@@ -71,24 +71,46 @@ export function calculateLufs(samples: number[], bitDepth: number, sampleRate: n
   const maxValue = (1 << (bitDepth - 1)) - 1;
   const normalized = samples.map((sample) => sample / maxValue);
 
-  let w1 = 0;
-  let w2 = 0;
-  let sumOfSquares = 0;
+  const blockSize = Math.floor(0.4 * sampleRate);
+  const blocks: number[] = [];
 
-  for (let i = 0; i < normalized.length; i++) {
-    let w0 = 0;
-    if (i >= 2) {
-      w0 = kA * normalized[i] + kB * normalized[i - 1] + kC * normalized[i - 2] + kD * w1 + kE * w2;
+  for (let blockStart = 0; blockStart < normalized.length; blockStart += blockSize) {
+    let w1 = 0,
+      w2 = 0;
+    let blockSum = 0;
+
+    const blockEnd = Math.min(blockStart + blockSize, normalized.length);
+
+    for (let i = blockStart; i < blockEnd; i++) {
+      let w0 = 0;
+      if (i >= blockStart + 2) {
+        w0 = kA * normalized[i] + kB * normalized[i - 1] + kC * normalized[i - 2] + kD * w1 + kE * w2;
+      }
+      blockSum += w0 * w0;
+      w2 = w1;
+      w1 = w0;
     }
-    sumOfSquares += w0 * w0;
-    w2 = w1;
-    w1 = w0;
+
+    const blockMeanSquare = blockSum / (blockEnd - blockStart);
+    blocks.push(-0.691 + 10 * Math.log10(blockMeanSquare));
   }
 
-  const meanSquare = sumOfSquares / normalized.length;
-  const lufs = 10 * Math.log10(meanSquare);
+  const absoluteGateThreshold = -70;
+  const relativeGateOffset = -10;
 
-  return lufs;
+  const absoluteGatedBlocks = blocks.filter((lufs) => lufs > absoluteGateThreshold);
+  if (absoluteGatedBlocks.length === 0) return -Infinity;
+
+  const ungatedMean =
+    absoluteGatedBlocks.reduce((sum, lufs) => sum + Math.pow(10, lufs / 10), 0) / absoluteGatedBlocks.length;
+  const relativeGateThreshold = 10 * Math.log10(ungatedMean) + relativeGateOffset;
+
+  const relativeGatedBlocks = absoluteGatedBlocks.filter((lufs) => lufs > relativeGateThreshold);
+  if (relativeGatedBlocks.length === 0) return -Infinity;
+
+  const gatedMean =
+    relativeGatedBlocks.reduce((sum, lufs) => sum + Math.pow(10, lufs / 10), 0) / relativeGatedBlocks.length;
+  return 10 * Math.log10(gatedMean);
 }
 
 /**
@@ -142,12 +164,12 @@ export function createWavHeader(dataSize: number, sampleRate: number, channels: 
  * Generates Triangular Probability Density Function (TPDF) dither.
  * Randomizes quantization errors, reduces distortion and creates a stable noise floor for more natural sound.
  * @param bitDepth - Target bit depth for dither generation
- * @returns Dither value scaled to the target bit depth
+ * @returns Dither value scaled to ±1 LSB for the target bit depth
  */
-const generateTPDFDither = (bitDepth: number): number => {
+const generateTPDFDither = (): number => {
   const r1 = Math.random() * 2 - 1;
   const r2 = Math.random() * 2 - 1;
-  return (r1 + r2) * (1 << (bitDepth - 1));
+  return (r1 + r2) / 2;
 };
 
 /**
@@ -194,7 +216,7 @@ export const requantizeSample = (
     };
   }
 
-  let processedSample = sample + generateTPDFDither(targetBitDepth);
+  let processedSample = sample + generateTPDFDither();
   processedSample = applyNoiseShaping(processedSample, previousError);
 
   const quantized = Math.round(processedSample / (1 << bitDifference)) * (1 << bitDifference);
