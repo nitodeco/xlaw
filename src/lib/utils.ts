@@ -93,6 +93,7 @@ export function calculateLufs(samples: number[], bitDepth: number, sampleRate: n
 
 /**
  * Creates a WAV header for a given data size, sample rate, and number of channels.
+ * Supports only PCM audio.
  *
  * @param dataSize - Size of the data in bytes
  * @param sampleRate - Sample rate of the audio in Hz
@@ -108,11 +109,11 @@ export function createWavHeader(dataSize: number, sampleRate: number, channels: 
     { value: "WAVE", type: "string" },
     { value: "fmt ", type: "string" },
     { value: 16, type: "uint32" },
-    { value: 7, type: "uint16" },
+    { value: 1, type: "uint16" },
     { value: channels, type: "uint16" },
     { value: sampleRate, type: "uint32" },
-    { value: sampleRate * channels, type: "uint32" },
-    { value: channels, type: "uint16" },
+    { value: (sampleRate * channels * bitDepth) / 8, type: "uint32" },
+    { value: (channels * bitDepth) / 8, type: "uint16" },
     { value: bitDepth, type: "uint16" },
     { value: "data", type: "string" },
     { value: dataSize, type: "uint32" },
