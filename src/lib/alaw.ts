@@ -5,6 +5,10 @@
 
 import { BitDepth } from "./types";
 import { requantizeSample } from "./utils";
+import { SIGN_SHIFT, MANTISSA_MASK } from "./constants";
+
+const ALAW_XOR = 0x55;
+const SEGMENT_SHIFT = 4;
 
 const LOG_TABLE: number[] = [
   1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6,
@@ -23,7 +27,7 @@ export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): numb
   let scaledSample = requantizeSample(sample, inputBitDepth, 16).sample;
 
   scaledSample = scaledSample == -32768 ? -32767 : scaledSample;
-  let sign = (~scaledSample >> 8) & 0x80;
+  let sign = (~scaledSample >> SIGN_SHIFT) & 0x80;
 
   if (!sign) {
     scaledSample = scaledSample * -1;
@@ -33,14 +37,14 @@ export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): numb
 
   let compandedValue: number;
   if (scaledSample >= 256) {
-    let exponent: number = LOG_TABLE[(scaledSample >> 8) & 0x7f];
-    let mantissa: number = (scaledSample >> (exponent + 3)) & 0x0f;
-    compandedValue = (exponent << 4) | mantissa;
+    let exponent: number = LOG_TABLE[(scaledSample >> SIGN_SHIFT) & 0x7f];
+    let mantissa: number = (scaledSample >> (exponent + 3)) & MANTISSA_MASK;
+    compandedValue = (exponent << SEGMENT_SHIFT) | mantissa;
   } else {
-    compandedValue = scaledSample >> 4;
+    compandedValue = scaledSample >> SEGMENT_SHIFT;
   }
 
-  return compandedValue ^ (sign ^ 0x55);
+  return compandedValue ^ (sign ^ ALAW_XOR);
 }
 
 /**
@@ -51,18 +55,18 @@ export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): numb
  */
 export function decodeSample(aLawSample: number, targetBitDepth: BitDepth = 16): number {
   let sign: number = 0;
-  aLawSample ^= 0x55;
+  aLawSample ^= ALAW_XOR;
 
   if (aLawSample & 0x80) {
     aLawSample &= ~(1 << 7);
     sign = -1;
   }
 
-  const position: number = ((aLawSample & 0xf0) >> 4) + 4;
+  const position: number = ((aLawSample & 0xf0) >> SEGMENT_SHIFT) + 4;
   let decoded: number = 0;
 
   if (position != 4) {
-    decoded = (1 << position) | ((aLawSample & 0x0f) << (position - 4)) | (1 << (position - 5));
+    decoded = (1 << position) | ((aLawSample & MANTISSA_MASK) << (position - 4)) | (1 << (position - 5));
   } else {
     decoded = (aLawSample << 1) | 1;
   }

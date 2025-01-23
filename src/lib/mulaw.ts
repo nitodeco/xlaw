@@ -5,9 +5,12 @@
 
 import { BitDepth } from "./types";
 import { requantizeSample } from "./utils";
+import { SIGN_SHIFT, MANTISSA_MASK } from "./constants";
 
-const BIAS: number = 0x84;
-const CLIP: number = 32635;
+const BIAS = 0x84;
+const CLIP = 32635;
+const EXPONENT_MASK = 0x07;
+const EXPONENT_SHIFT = 4;
 
 const encodeTable: number[] = [
   0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5,
@@ -30,15 +33,15 @@ const decodeTable: number[] = [0, 132, 396, 924, 1980, 4092, 8316, 16764];
 export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): number {
   let scaledSample = requantizeSample(sample, inputBitDepth, 16).sample;
 
-  let sign = (scaledSample >> 8) & 0x80;
+  let sign = (scaledSample >> SIGN_SHIFT) & 0x80;
   if (sign !== 0) scaledSample = -scaledSample;
 
   scaledSample += BIAS;
   if (scaledSample > CLIP) scaledSample = CLIP;
 
   let exponent = encodeTable[(scaledSample >> 7) & 0xff];
-  let mantissa = (scaledSample >> (exponent + 3)) & 0x0f;
-  let muLawSample = ~(sign | (exponent << 4) | mantissa);
+  let mantissa = (scaledSample >> (exponent + 3)) & MANTISSA_MASK;
+  let muLawSample = ~(sign | (exponent << EXPONENT_SHIFT) | mantissa);
 
   return muLawSample & 0xff;
 }
@@ -52,8 +55,8 @@ export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): numb
 export function decodeSample(muLawSample: number, targetBitDepth: BitDepth = 16): number {
   muLawSample = ~muLawSample;
   let sign = muLawSample & 0x80;
-  let exponent = (muLawSample >> 4) & 0x07;
-  let mantissa = muLawSample & 0x0f;
+  let exponent = (muLawSample >> EXPONENT_SHIFT) & EXPONENT_MASK;
+  let mantissa = muLawSample & MANTISSA_MASK;
 
   let decoded16 = decodeTable[exponent] + (mantissa << (exponent + 3));
   if (sign !== 0) decoded16 = -decoded16;
