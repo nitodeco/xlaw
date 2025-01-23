@@ -31,13 +31,13 @@ npm install x-law
 CommonJS:
 
 ```javascript
-const xlaw = require("x-law");
+const { alaw, mulaw, utils } = require("x-law");
 ```
 
 ESM:
 
 ```javascript
-import xlaw from "x-law";
+import { alaw, mulaw, utils } from "x-law";
 ```
 
 ## Examples
@@ -45,7 +45,7 @@ import xlaw from "x-law";
 ### Basic Usage
 
 ```javascript
-import xlaw from "x-law";
+import { alaw, mulaw } from "x-law";
 
 // Convert between PCM and μ-Law/A-Law
 const pcmSamples = new Int16Array([
@@ -53,70 +53,70 @@ const pcmSamples = new Int16Array([
 ]);
 
 // Encode to μ-Law
-const mulawSamples = xlaw.mulaw.encode(pcmSamples);
+const mulawSamples = mulaw.encode(pcmSamples);
 // Decode back to PCM
-const decodedPcm = xlaw.mulaw.decode(mulawSamples);
+const decodedPcm = mulaw.decode(mulawSamples);
 
 // Encode to A-Law
-const alawSamples = xlaw.alaw.encode(pcmSamples);
+const alawSamples = alaw.encode(pcmSamples);
 // Decode back to PCM
-const decodedAlawPcm = xlaw.alaw.decode(alawSamples);
+const decodedAlawPcm = alaw.decode(alawSamples);
 ```
 
 ### Working with Different Bit Depths
 
 ```javascript
-import xlaw from "x-law";
+import { mulaw } from "x-law";
 
 // Convert 24-bit PCM to 8-bit μ-Law
 const pcm24bit = new Int32Array([
   /* 24-bit PCM samples */
 ]);
-const mulaw = xlaw.mulaw.encode(pcm24bit, 24);
+const mulawData = mulaw.encode(pcm24bit, 24);
 
 // Decode μ-Law to 32-bit PCM
-const pcm32bit = xlaw.mulaw.decode(mulaw, 32);
+const pcm32bit = mulaw.decode(mulawData, 32);
 
 // Single sample conversion
-const singleMulaw = xlaw.mulaw.encodeSample(pcmSample, 24); // 24-bit PCM to μ-Law
-const singlePcm = xlaw.mulaw.decodeSample(mulawSample, 32); // μ-Law to 32-bit PCM
+const singleMulaw = mulaw.encodeSample(pcmSample, 24); // 24-bit PCM to μ-Law
+const singlePcm = mulaw.decodeSample(mulawSample, 32); // μ-Law to 32-bit PCM
 ```
 
 ### Audio Processing Utilities
 
 ```javascript
-import xlaw from "x-law";
+import { utils } from "x-law";
 
 // Calculate audio loudness (RMS)
-const rmsDb = xlaw.utils.calculateRms(pcmSamples, 16); // For 16-bit PCM
+const rmsDb = utils.calculateRms(pcmSamples, 16); // For 16-bit PCM
 console.log(`Loudness: ${rmsDb} dB`);
 
 // Calculate LUFS loudness
-const lufs = xlaw.utils.calculateLufs(pcmSamples, 16, 44100);
+const lufs = utils.calculateLufs(pcmSamples, 16, 44100);
 console.log(`Integrated loudness: ${lufs} LUFS`);
 
 // Resample audio
 const pcm48k = new Int16Array([
   /* 48kHz PCM samples */
 ]);
-const pcm16k = xlaw.utils.resample(pcm48k, 48000, 16000);
+const pcm16k = utils.resample(pcm48k, 48000, 16000);
 
 // Change bit depth with dithering
 const pcm16bit = new Int16Array([
   /* 16-bit PCM samples */
 ]);
-const pcm8bit = xlaw.utils.requantize(pcm16bit, 16, 8);
+const pcm8bit = utils.requantize(pcm16bit, 16, 8);
 ```
 
 ### Saving PCM to a WAV file
 
 ```javascript
 import fs from "fs";
-import xlaw from "x-law";
+import { utils } from "x-law";
 
 // Create a WAV header for mono 16-bit PCM at 44.1kHz
 const dataSize = pcmSamples.byteLength;
-const wavHeader = xlaw.utils.createWavHeader(dataSize, 44100, 1, 16);
+const wavHeader = utils.createWavHeader(dataSize, 44100, 1, 16);
 
 // Combine header with audio data
 const wavFile = Buffer.concat([wavHeader, Buffer.from(pcmSamples.buffer)]);
