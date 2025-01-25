@@ -10,14 +10,14 @@ const BIT_DEPTHS: BitDepth[] = [8, 16, 24, 32];
 /**
  * Computes the average RMS loudness of a PCM buffer in decibels (dB).
  *
- * @param samples - Array of PCM samples.
- * @param bitDepth - The bit depth of the PCM audio.
- * @returns The average RMS loudness in decibels (dB).
+ * @param {Buffer} buffer - PCM audio buffer
+ * @param {BitDepth} bitDepth - The bit depth of the PCM audio.
+ * @returns {number} The average RMS loudness in decibels (dB).
  *
  * @throws {Error} If the buffer is empty or the bit depth is invalid.
  */
-export function calculateRms(samples: number[], bitDepth: number): number {
-  if (samples.length === 0) {
+export function calculateRms(buffer: Buffer, bitDepth: number): number {
+  if (buffer.length === 0) {
     throw new Error("Invalid buffer, buffer must not be empty.");
   }
   if (!BIT_DEPTHS.includes(bitDepth as BitDepth)) {
@@ -26,13 +26,16 @@ export function calculateRms(samples: number[], bitDepth: number): number {
 
   const maxValue = (1 << (bitDepth - 1)) - 1;
   let sumOfSquares = 0;
+  const bytesPerSample = Math.ceil(bitDepth / 8);
+  const numSamples = buffer.length / bytesPerSample;
 
-  for (const sample of samples) {
+  for (let i = 0; i < numSamples; i++) {
+    const sample = buffer.readIntLE(i * bytesPerSample, bytesPerSample);
     const normalized = sample / maxValue;
     sumOfSquares += normalized * normalized;
   }
 
-  const rms = Math.sqrt(sumOfSquares / samples.length);
+  const rms = Math.sqrt(sumOfSquares / numSamples);
 
   if (rms === 0) {
     return -Infinity;
@@ -44,18 +47,18 @@ export function calculateRms(samples: number[], bitDepth: number): number {
 /**
  * Computes the integrated LUFS loudness of a PCM buffer.
  *
- * @param samples - Array of PCM samples
- * @param bitDepth - The bit depth of the PCM audio (8, 16, 24, or 32)
- * @param sampleRate - The sample rate in Hz
- * @returns The integrated loudness in LUFS
+ * @param {Buffer} buffer - PCM audio buffer
+ * @param {BitDepth} bitDepth - The bit depth of the PCM audio (8, 16, 24, or 32)
+ * @param {number} sampleRate - The sample rate in Hz
+ * @returns {number} The integrated loudness in LUFS
  *
  * @throws {Error} If the buffer is empty, bit depth is invalid, or sample rate is non-positive
  */
-export function calculateLufs(samples: number[], bitDepth: number, sampleRate: number): number {
-  if (!samples.length) {
-    throw new Error("Invalid buffer, must not be empty.");
+export function calculateLufs(buffer: Buffer, bitDepth: BitDepth, sampleRate: number): number {
+  if (buffer.length === 0) {
+    throw new Error("Fucking invalid buffer, can't be empty.");
   }
-  if (!BIT_DEPTHS.includes(bitDepth as BitDepth)) {
+  if (!BIT_DEPTHS.includes(bitDepth)) {
     throw new Error("Invalid bit depth, supported values are 8, 16, 24, and 32.");
   }
   if (sampleRate <= 0) {
@@ -68,8 +71,15 @@ export function calculateLufs(samples: number[], bitDepth: number, sampleRate: n
   const kD = -1.69065929318241;
   const kE = 0.73248077421585;
 
+  const bytesPerSample = Math.ceil(bitDepth / 8);
+  const numSamples = buffer.length / bytesPerSample;
   const maxValue = (1 << (bitDepth - 1)) - 1;
-  const normalized = samples.map((sample) => sample / maxValue);
+  const normalized: number[] = [];
+
+  for (let i = 0; i < numSamples; i++) {
+    const sample = buffer.readIntLE(i * bytesPerSample, bytesPerSample);
+    normalized.push(sample / maxValue);
+  }
 
   const blockSize = Math.floor(0.4 * sampleRate);
   const blocks: number[] = [];
@@ -117,11 +127,11 @@ export function calculateLufs(samples: number[], bitDepth: number, sampleRate: n
  * Creates a WAV header for a given data size, sample rate, and number of channels.
  * Supports only PCM audio.
  *
- * @param dataSize - Size of the data in bytes
- * @param sampleRate - Sample rate of the audio in Hz
- * @param channels - Number of channels in the audio
- * @param bitDepth - Bit depth of the audio
- * @returns Buffer containing WAV header
+ * @param {number} dataSize - Size of the data in bytes
+ * @param {number} sampleRate - Sample rate of the audio in Hz
+ * @param {Channels} channels - Number of channels in the audio
+ * @param {BitDepth} bitDepth - Bit depth of the audio
+ * @returns {Buffer} Buffer containing WAV header
  */
 export function createWavHeader(dataSize: number, sampleRate: number, channels: Channels, bitDepth: BitDepth): Buffer {
   // https://docs.fileformat.com/audio/wav/
@@ -163,8 +173,7 @@ export function createWavHeader(dataSize: number, sampleRate: number, channels: 
 /**
  * Generates Triangular Probability Density Function (TPDF) dither.
  * Randomizes quantization errors, reduces distortion and creates a stable noise floor for more natural sound.
- * @param bitDepth - Target bit depth for dither generation
- * @returns Dither value scaled to ±1 LSB for the target bit depth
+ * @returns {number} Dither value scaled to ±1 LSB for the target bit depth
  */
 const generateTPDFDither = (): number => {
   const r1 = Math.random() * 2 - 1;
@@ -174,9 +183,9 @@ const generateTPDFDither = (): number => {
 
 /**
  * Applies simple noise shaping to reduce perceived quantization noise.
- * @param sample - Input sample to process
- * @param error - Previous sample's quantization error
- * @returns Processed sample with noise shaping applied
+ * @param {number} sample - Input sample to process
+ * @param {number} error - Previous sample's quantization error
+ * @returns {number} Processed sample with noise shaping applied
  */
 const applyNoiseShaping = (sample: number, error: number): number => {
   const shapingCoeff = -1.5;
@@ -185,18 +194,18 @@ const applyNoiseShaping = (sample: number, error: number): number => {
 
 /**
  * Requantizes a PCM sample to a different bit depth with dithering and noise shaping.
- * @param sample - Input PCM sample.
- * @param inputBitDepth - Original bit depth of the sample
- * @param targetBitDepth - Desired output bit depth
- * @param previousError - Previous sample's quantization error for noise shaping
- * @returns Object containing the processed sample and its quantization error
+ * @param {number} sample - Input PCM sample.
+ * @param {BitDepth} inputBitDepth - Original bit depth of the sample
+ * @param {BitDepth} targetBitDepth - Desired output bit depth
+ * @param {number} previousError - Previous sample's quantization error for noise shaping
+ * @returns {Object} Object containing the processed sample and its quantization error
  * @throws {Error} If sample value exceeds the valid range for input bit depth
  */
 export const requantizeSample = (
   sample: number,
   inputBitDepth: BitDepth,
   targetBitDepth: BitDepth,
-  previousError = 0
+  previousError: number = 0
 ): { sample: number; error: number } => {
   if (inputBitDepth == targetBitDepth) {
     return { sample, error: 0 };
@@ -233,10 +242,10 @@ export const requantizeSample = (
 /**
  * Requantizes an array of audio samples to a different bit depth.
  * Applies TPDF dithering and noise shaping across the entire array.
- * @param samples - Array of input audio samples
- * @param inputBitDepth - Original bit depth of the samples
- * @param targetBitDepth - Desired output bit depth
- * @returns Array of requantized samples
+ * @param {number[]} samples - Array of input audio samples
+ * @param {BitDepth} inputBitDepth - Original bit depth of the samples
+ * @param {BitDepth} targetBitDepth - Desired output bit depth
+ * @returns {number[]} Array of requantized samples
  */
 export const requantize = (samples: number[], inputBitDepth: BitDepth, targetBitDepth: BitDepth): number[] => {
   let lastError = 0;
@@ -250,12 +259,12 @@ export const requantize = (samples: number[], inputBitDepth: BitDepth, targetBit
 
 /**
  * Resamples PCM samples from one sample rate to another.
- * @param samples - Array of PCM samples
- * @param inputSampleRate - The sample rate of the input samples
- * @param targetSampleRate - The target sample rate
- * @returns Array of resampled PCM samples
+ * @param {number[]} samples - Array of PCM samples
+ * @param {number} inputSampleRate - The sample rate of the input samples
+ * @param {number} targetSampleRate - The target sample rate
+ * @returns {number[]} Array of resampled PCM samples
  */
-export const resample = (samples: number[], inputSampleRate: number, targetSampleRate: number) => {
+export const resample = (samples: number[], inputSampleRate: number, targetSampleRate: number): number[] => {
   if (inputSampleRate <= 0 || targetSampleRate <= 0) {
     throw new Error("Sample rates must be positive");
   }
