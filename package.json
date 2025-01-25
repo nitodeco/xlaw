@@ -38,7 +38,8 @@
     "format": "prettier --write .",
     "precommit": "husky",
     "build": "npm run precommit && tsup",
-    "docs": "typedoc --entryPointStrategy Expand src/index.ts --out docs --plugin typedoc-github-theme"
+    "docs": "typedoc --entryPointStrategy Expand src/index.ts --out docs --plugin typedoc-github-theme",
+    "validate": "npm run precommit && npm run build && npm run docs"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",

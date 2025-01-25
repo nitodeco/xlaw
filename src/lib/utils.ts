@@ -3,7 +3,8 @@
  * Utility functions for common audio processing tasks.
  */
 
-import { BitDepth, Channels } from "../index.d";
+export type BitDepth = 8 | 16 | 24 | 32 | 48;
+export type Channels = 1 | 2;
 
 const BIT_DEPTHS: BitDepth[] = [8, 16, 24, 32, 48];
 
