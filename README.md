@@ -44,7 +44,7 @@ import { alaw, mulaw, utils } from "x-law";
 
 ### Basic Usage
 
-```javascript
+```typescript
 import { alaw, mulaw } from "x-law";
 
 // Convert between PCM and μ-Law/A-Law
@@ -53,70 +53,75 @@ const pcmSamples = new Int16Array([
 ]);
 
 // Encode to μ-Law
-const mulawSamples = mulaw.encode(pcmSamples);
+const mulawSamples = mulaw.encode(pcmSamples); // Returns Uint8Array
 // Decode back to PCM
-const decodedPcm = mulaw.decode(mulawSamples);
+const decodedPcm = mulaw.decode(mulawSamples); // Returns Int16Array
 
 // Encode to A-Law
-const alawSamples = alaw.encode(pcmSamples);
+const alawSamples = alaw.encode(pcmSamples); // Returns Uint8Array
 // Decode back to PCM
-const decodedAlawPcm = alaw.decode(alawSamples);
+const decodedAlawPcm = alaw.decode(alawSamples); // Returns Int16Array
+
+// Working with Buffer objects
+const pcmBuffer = Buffer.from(pcmSamples.buffer);
+const encodedMulaw = mulaw.encodeBuffer(pcmBuffer);
+const decodedBuffer = mulaw.decodeBuffer(encodedMulaw);
 ```
 
-### Working with Different Bit Depths
+### Single Sample Processing
 
-```javascript
-import { mulaw } from "x-law";
-
-// Convert 24-bit PCM to 8-bit μ-Law
-const pcm24bit = new Int32Array([
-  /* 24-bit PCM samples */
-]);
-const mulawData = mulaw.encode(pcm24bit, 24);
-
-// Decode μ-Law to 32-bit PCM
-const pcm32bit = mulaw.decode(mulawData, 32);
+```typescript
+import { alaw, mulaw } from "x-law";
 
 // Single sample conversion
-const singleMulaw = mulaw.encodeSample(pcmSample, 24); // 24-bit PCM to μ-Law
-const singlePcm = mulaw.decodeSample(mulawSample, 32); // μ-Law to 32-bit PCM
+const pcmSample = 16384; // 16-bit PCM sample
+const mulawSample = mulaw.encodeSample(pcmSample);
+const decodedSample = mulaw.decodeSample(mulawSample);
+
+const alawSample = alaw.encodeSample(pcmSample);
+const decodedAlawSample = alaw.decodeSample(alawSample);
 ```
 
 ### Audio Processing Utilities
 
-```javascript
+```typescript
 import { utils } from "x-law";
 
-// Calculate audio loudness (RMS)
-const rmsDb = utils.calculateRms(pcmSamples, 16); // For 16-bit PCM
-console.log(`Loudness: ${rmsDb} dB`);
-
-// Calculate LUFS loudness
-const lufs = utils.calculateLufs(pcmSamples, 16, 44100);
-console.log(`Integrated loudness: ${lufs} LUFS`);
+// Calculate audio loudness
+const buffer = Buffer.from([
+  /* audio data */
+]);
+const loudness = utils.calculateLoudness(buffer, 16); // For 16-bit PCM
+console.log(`Loudness: ${loudness}`);
 
 // Resample audio
-const pcm48k = new Int16Array([
-  /* 48kHz PCM samples */
-]);
-const pcm16k = utils.resample(pcm48k, 48000, 16000);
+const samples = [
+  /* PCM samples */
+];
+const resampled = utils.resample(samples, 48000, 16000);
 
 // Change bit depth with dithering
-const pcm16bit = new Int16Array([
-  /* 16-bit PCM samples */
-]);
-const pcm8bit = utils.requantize(pcm16bit, 16, 8);
+const inputSamples = [
+  /* PCM samples */
+];
+const requantized = utils.requantize(inputSamples, 16, 8);
+
+// Single sample requantization with error diffusion
+let prevError = 0;
+const sample = 32767;
+const { sample: newSample, error } = utils.requantizeSample(sample, 16, 8, prevError);
+prevError = error;
 ```
 
-### Saving PCM to a WAV file
+### Creating WAV Files
 
-```javascript
+```typescript
 import fs from "fs";
 import { utils } from "x-law";
 
-// Create a WAV header for mono 16-bit PCM at 44.1kHz
+// Create a WAV header for mono 16-bit PCM at 16kHz
 const dataSize = pcmSamples.byteLength;
-const wavHeader = utils.createWavHeader(dataSize, 44100, 1, 16);
+const wavHeader = utils.createWavHeader(dataSize, 16000, 1, 16);
 
 // Combine header with audio data
 const wavFile = Buffer.concat([wavHeader, Buffer.from(pcmSamples.buffer)]);
