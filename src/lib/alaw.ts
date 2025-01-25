@@ -89,10 +89,13 @@ export function decode(samples: Uint8Array): Int16Array {
  * @returns {Buffer} Buffer of 8-bit A-Law samples
  */
 export function encodeBuffer(buffer: Buffer): Buffer {
-  const samples = new Int16Array(buffer.length / 2);
-  for (let i = 0; i < buffer.length; i += 2) {
-    samples[i / 2] = buffer.readInt16LE(i);
+  const numSamples = Math.floor(buffer.length / 2);
+  const samples = new Int16Array(numSamples);
+
+  for (let i = 0; i < numSamples; i++) {
+    samples[i] = buffer.readInt16LE(i * 2);
   }
+
   return Buffer.from(encode(samples).buffer);
 }
 
