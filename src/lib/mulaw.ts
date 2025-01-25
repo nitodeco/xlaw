@@ -1,19 +1,11 @@
 /**
  * @module x-law/mulaw
- * μ-Law codec.
  */
-
-import { BitDepth } from "./types";
-import { requantizeSample } from "./utils";
-import { SIGN_SHIFT, MANTISSA_MASK } from "./constants";
-import { validateSample } from "./internal";
 
 const BIAS = 0x84;
 const CLIP = 32635;
-const EXPONENT_MASK = 0x07;
-const EXPONENT_SHIFT = 4;
 
-const encodeTable: number[] = [
+const encodeTable = [
   0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5,
   5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
   6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
@@ -23,84 +15,87 @@ const encodeTable: number[] = [
   7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
 ];
 
-const decodeTable: number[] = [0, 132, 396, 924, 1980, 4092, 8316, 16764];
+const decodeTable = [0, 132, 396, 924, 1980, 4092, 8316, 16764];
 
 /**
- * Encodes a single PCM sample of arbitrary bit depth and sample rate to 8-bit μ-Law.
- * @param {number} sample - The input PCM sample
- * @param {BitDepth} inputBitDepth - The bit depth of the input sample (default: 16)
- * @returns {number} The encoded 8-bit μ-Law sample
+ * Encode a single 16-bit PCM sample to 8-bit μ-Law.
+ * @param {number} sample - A 16-bit PCM sample
+ * @returns {number} The 8-bit μ-Law encoded sample
  */
-export function encodeSample(sample: number, inputBitDepth: BitDepth = 16): number {
-  let scaledSample = requantizeSample(sample, inputBitDepth, 16).sample;
-  validateSample(scaledSample, 32767);
+export function encodeSample(sample: number): number {
+  const sign = sample < 0 ? 0x80 : 0;
+  sample = Math.abs(sample);
 
-  let sign = (scaledSample >> SIGN_SHIFT) & 0x80;
-  if (sign !== 0) scaledSample = -scaledSample;
+  sample += BIAS;
+  if (sample > CLIP) sample = CLIP;
 
-  scaledSample += BIAS;
-  if (scaledSample > CLIP) scaledSample = CLIP;
+  const exponent = encodeTable[(sample >> 7) & 0xff];
+  const mantissa = (sample >> (exponent + 3)) & 0x0f;
 
-  let exponent = encodeTable[(scaledSample >> 7) & 0xff];
-  let mantissa = (scaledSample >> (exponent + 3)) & MANTISSA_MASK;
-  let muLawSample = ~(sign | (exponent << EXPONENT_SHIFT) | mantissa);
-
-  return muLawSample & 0xff;
+  return ~(sign | (exponent << 4) | mantissa) & 0xff;
 }
 
 /**
- * Decodes a single 8-bit μ-Law sample to a PCM sample of arbitrary bit depth and sample rate.
- * @param {number} muLawSample - The input μ-Law sample (8-bit unsigned integer)
- * @param {BitDepth} targetBitDepth - The target bit depth of the output (default: 16)
- * @returns {number} The decoded PCM sample, properly scaled to the target bit depth
+ * Decode a single 8-bit μ-Law sample to 16-bit PCM.
+ * @param {number} sample - 8-bit μ-Law sample
+ * @returns {number} The decoded 16-bit PCM sample
  */
-export function decodeSample(muLawSample: number, targetBitDepth: BitDepth = 16): number {
-  muLawSample = ~muLawSample;
-  let sign = muLawSample & 0x80;
-  let exponent = (muLawSample >> EXPONENT_SHIFT) & EXPONENT_MASK;
-  let mantissa = muLawSample & MANTISSA_MASK;
+export function decodeSample(sample: number): number {
+  sample = ~sample & 0xff;
 
-  let decoded16 = decodeTable[exponent] + (mantissa << (exponent + 3));
-  if (sign !== 0) decoded16 = -decoded16;
+  const sign = sample & 0x80 ? -1 : 1;
+  const exponent = (sample >> 4) & 0x07;
+  const mantissa = sample & 0x0f;
 
-  return requantizeSample(decoded16, 16, targetBitDepth).sample;
+  const decodedSample = decodeTable[exponent] + (mantissa << (exponent + 3));
+  return sign * decodedSample;
 }
 
 /**
- * Encodes an array of PCM samples or a PCM buffer to 8-bit μ-Law samples.
- * @param {Buffer | Int16Array} samples - Array of PCM samples to encode
- * @returns {Uint8Array} Array of encoded 8-bit μ-Law samples
+ * Encode an array of 16-bit PCM samples into 8-bit μ-Law samples.
+ * @param {Int16Array} samples - Int16Array of PCM samples
+ * @returns {Uint8Array} A new Uint8Array of μ-Law data
  */
-export function encode(samples: Buffer | Int16Array, inputBitDepth: BitDepth = 16): Uint8Array {
-  let muLawSamples: Uint8Array = new Uint8Array(samples.length);
+export function encode(samples: Int16Array): Uint8Array {
+  const muLawSamples = new Uint8Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
-    muLawSamples[i] = encodeSample(samples[i], inputBitDepth);
+    muLawSamples[i] = encodeSample(samples[i]);
   }
   return muLawSamples;
 }
 
 /**
- * Decodes an array of 8-bit μ-Law samples to a PCM buffer.
- * @param {Uint8Array} samples - Array of 8-bit μ-Law samples to decode
- * @param {BitDepth} targetBitDepth - Target bit depth for decoded samples (default: 16)
- * @returns {Buffer} Buffer containing decoded PCM samples at specified bit depth
+ * Decode an array of 8-bit μ-Law samples into 16-bit PCM samples.
+ * @param {Uint8Array} samples - Uint8Array of μ-Law data
+ * @returns {Int16Array} A new Int16Array of 16-bit PCM samples
  */
-export function decode(samples: Uint8Array | Buffer, targetBitDepth: BitDepth = 16): Buffer {
-  if (samples instanceof Buffer) {
-    try {
-      samples = new Uint8Array(samples);
-    } catch (error) {
-      throw new Error("Invalid input buffer, must be 8 bit μ-Law");
-    }
-  }
-
-  const bytesPerSample = Math.ceil(targetBitDepth / 8);
-  const buffer = Buffer.alloc(samples.length * bytesPerSample);
-
+export function decode(samples: Uint8Array): Int16Array {
+  const pcmSamples = new Int16Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
-    const decodedSample = decodeSample(samples[i], targetBitDepth);
-    buffer.writeIntLE(decodedSample, i * bytesPerSample, bytesPerSample);
+    pcmSamples[i] = decodeSample(samples[i]);
   }
+  return pcmSamples;
+}
 
-  return buffer;
+/**
+ * Encode a Buffer of 16-bit PCM samples into a Buffer of 8-bit μ-Law samples.
+ * @param {Buffer} buffer - Buffer of 16-bit PCM samples
+ * @returns {Buffer} Buffer of 8-bit μ-Law samples
+ */
+export function encodeBuffer(buffer: Buffer): Buffer {
+  const samples = new Int16Array(buffer.length / 2);
+  for (let i = 0; i < buffer.length; i += 2) {
+    samples[i / 2] = buffer.readInt16LE(i);
+  }
+  return Buffer.from(encode(samples).buffer);
+}
+
+/**
+ * Decode a Buffer of 8-bit μ-Law samples into a Buffer of 16-bit PCM samples.
+ * @param {Buffer} buffer - Buffer of 8-bit μ-Law samples
+ * @returns {Buffer} Buffer of 16-bit PCM samples
+ */
+export function decodeBuffer(buffer: Buffer): Buffer {
+  const samples = decode(new Uint8Array(buffer));
+  return Buffer.from(samples.buffer);
 }
