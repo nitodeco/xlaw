@@ -87,46 +87,28 @@ const decodedAlawSample = alaw.decodeSample(alawSample);
 ```typescript
 import { utils } from "x-law";
 
-// Calculate audio loudness
-const buffer = Buffer.from([
-  /* audio data */
-]);
+// Calculate RMS loudness in decibels
+const buffer = Buffer.from(/* PCM audio data */);
 const loudness = utils.calculateLoudness(buffer, 16); // For 16-bit PCM
-console.log(`Loudness: ${loudness}`);
+console.log(`RMS Loudness: ${loudness} dB`);
 
-// Resample audio
+// Resample audio (e.g., from 48kHz to 16kHz)
 const samples = [
   /* PCM samples */
 ];
-const resampled = utils.resample(samples, 48000, 16000);
+const resampled = utils.resample(samples, 48000, 16000, 16); // 16-bit depth
 
-// Change bit depth with dithering
-const inputSamples = [
-  /* PCM samples */
-];
-const requantized = utils.requantize(inputSamples, 16, 8);
-
-// Single sample requantization with error diffusion
-let prevError = 0;
-const sample = 32767;
-const { sample: newSample, error } = utils.requantizeSample(sample, 16, 8, prevError);
-prevError = error;
-```
-
-### Creating WAV Files
-
-```typescript
-import fs from "fs";
-import { utils } from "x-law";
-
-// Create a WAV header for mono 16-bit PCM at 16kHz
+// Create a WAV header for audio data
 const dataSize = pcmSamples.byteLength;
-const wavHeader = utils.createWavHeader(dataSize, 16000, 1, 16);
+const wavHeader = utils.createWavHeader(
+  dataSize, // Size of audio data in bytes
+  44100, // Sample rate (Hz)
+  1, // Channels (1 = mono, 2 = stereo)
+  16 // Bit depth (8, 16, 24, or 32)
+);
 
-// Combine header with audio data
+// Write WAV file
 const wavFile = Buffer.concat([wavHeader, Buffer.from(pcmSamples.buffer)]);
-
-// Save to file
 fs.writeFileSync("output.wav", wavFile);
 ```
 
