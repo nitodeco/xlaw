@@ -3,12 +3,12 @@
  * Utility functions for common audio processing tasks.
  */
 
-import { BitDepth, Channels } from "./types";
+import { BitDepth, Channels } from "../index.d";
 
-const BIT_DEPTHS: BitDepth[] = [8, 16, 24, 32];
+const BIT_DEPTHS: BitDepth[] = [8, 16, 24, 32, 48];
 
 /**
- * Computes the average RMS loudness of a PCM buffer in decibels (dB).
+ * Computes the average RMS loudness of a signed-integerlittle-endian PCM buffer in decibels (dB).
  *
  * @param {Buffer} buffer - PCM audio buffer
  * @param {BitDepth} bitDepth - The bit depth of the PCM audio.
@@ -16,111 +16,52 @@ const BIT_DEPTHS: BitDepth[] = [8, 16, 24, 32];
  *
  * @throws {Error} If the buffer is empty or the bit depth is invalid.
  */
-export function calculateRms(buffer: Buffer, bitDepth: number): number {
-  if (buffer.length === 0) {
-    throw new Error("Invalid buffer, buffer must not be empty.");
+export function calculateLoudness(buffer: Buffer, bitDepth: number): number {
+  if (!(buffer instanceof Buffer) || buffer.length === 0) {
+    throw new Error("Invalid buffer, must be a non-empty Buffer.");
   }
   if (!BIT_DEPTHS.includes(bitDepth as BitDepth)) {
-    throw new Error("Invalid bit depth, supported values are 8, 16, 24, and 32.");
+    throw new Error("Invalid bit depth, supported values are 8, 16, 24, 32, and 48.");
+  }
+  if (bitDepth === 48) {
+    throw new Error("48-bit audio is not yet implemented.");
   }
 
-  const maxValue = (1 << (bitDepth - 1)) - 1;
-  let sumOfSquares = 0;
   const bytesPerSample = Math.ceil(bitDepth / 8);
-  const numSamples = buffer.length / bytesPerSample;
+  if (buffer.length % bytesPerSample !== 0) {
+    throw new Error(
+      `Invalid buffer length ${buffer.length}. Must be a multiple of ${bytesPerSample} bytes for ${bitDepth}-bit audio.`
+    );
+  }
 
-  for (let i = 0; i < numSamples; i++) {
-    const sample = buffer.readIntLE(i * bytesPerSample, bytesPerSample);
-    const normalized = sample / maxValue;
-    sumOfSquares += normalized * normalized;
+  const maxValue = Math.pow(2, bitDepth - 1) - 1;
+  const numSamples = buffer.length / bytesPerSample;
+  let sumOfSquares = 0;
+
+  const TypedArray = {
+    8: Int8Array,
+    16: Int16Array,
+    32: Int32Array,
+  }[bitDepth];
+
+  if (TypedArray) {
+    const samples = new TypedArray(buffer.buffer, buffer.byteOffset, numSamples);
+    for (let i = 0; i < samples.length; i++) {
+      const normalized = samples[i] / maxValue;
+      sumOfSquares += normalized * normalized;
+    }
+  } else {
+    for (let i = 0; i < numSamples; i++) {
+      const offset = i * bytesPerSample;
+      let sample = buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
+      if (sample & 0x800000) sample = sample | ~0xffffff;
+      const normalized = sample / maxValue;
+      sumOfSquares += normalized * normalized;
+    }
   }
 
   const rms = Math.sqrt(sumOfSquares / numSamples);
-
-  if (rms === 0) {
-    return -Infinity;
-  }
-
-  return 20 * Math.log10(rms);
-}
-
-/**
- * Computes the integrated LUFS loudness of a PCM buffer.
- *
- * @param {Buffer} buffer - PCM audio buffer
- * @param {BitDepth} bitDepth - The bit depth of the PCM audio (8, 16, 24, or 32)
- * @param {number} sampleRate - The sample rate in Hz
- * @returns {number} The integrated loudness in LUFS
- *
- * @throws {Error} If the buffer is empty, bit depth is invalid, or sample rate is non-positive
- */
-export function calculateLufs(buffer: Buffer, bitDepth: BitDepth, sampleRate: number): number {
-  if (buffer.length === 0) {
-    throw new Error("Fucking invalid buffer, can't be empty.");
-  }
-  if (!BIT_DEPTHS.includes(bitDepth)) {
-    throw new Error("Invalid bit depth, supported values are 8, 16, 24, and 32.");
-  }
-  if (sampleRate <= 0) {
-    throw new Error("Invalid sample rate, must be a positive number.");
-  }
-
-  const kA = 1.53512485958697;
-  const kB = -2.69169618940638;
-  const kC = 1.19839281085285;
-  const kD = -1.69065929318241;
-  const kE = 0.73248077421585;
-
-  const bytesPerSample = Math.ceil(bitDepth / 8);
-  const numSamples = buffer.length / bytesPerSample;
-  const maxValue = (1 << (bitDepth - 1)) - 1;
-  const normalized: number[] = [];
-
-  for (let i = 0; i < numSamples; i++) {
-    const sample = buffer.readIntLE(i * bytesPerSample, bytesPerSample);
-    normalized.push(sample / maxValue);
-  }
-
-  const blockSize = Math.floor(0.4 * sampleRate);
-  const blocks: number[] = [];
-
-  for (let blockStart = 0; blockStart < normalized.length; blockStart += blockSize) {
-    let w1 = 0,
-      w2 = 0;
-    let blockSum = 0;
-
-    const blockEnd = Math.min(blockStart + blockSize, normalized.length);
-
-    for (let i = blockStart; i < blockEnd; i++) {
-      let w0 = 0;
-      if (i >= blockStart + 2) {
-        w0 = kA * normalized[i] + kB * normalized[i - 1] + kC * normalized[i - 2] + kD * w1 + kE * w2;
-      }
-      blockSum += w0 * w0;
-      w2 = w1;
-      w1 = w0;
-    }
-
-    const blockMeanSquare = blockSum / (blockEnd - blockStart);
-    blocks.push(-0.691 + 10 * Math.log10(blockMeanSquare));
-  }
-
-  const absoluteGateThreshold = -70;
-  const relativeGateOffset = -10;
-
-  const absoluteGatedBlocks = blocks.filter((lufs) => lufs > absoluteGateThreshold);
-  if (absoluteGatedBlocks.length === 0) return -Infinity;
-
-  const ungatedMean =
-    absoluteGatedBlocks.reduce((sum, lufs) => sum + Math.pow(10, lufs / 10), 0) / absoluteGatedBlocks.length;
-  const relativeGateThreshold = 10 * Math.log10(ungatedMean) + relativeGateOffset;
-
-  const relativeGatedBlocks = absoluteGatedBlocks.filter((lufs) => lufs > relativeGateThreshold);
-  if (relativeGatedBlocks.length === 0) return -Infinity;
-
-  const gatedMean =
-    relativeGatedBlocks.reduce((sum, lufs) => sum + Math.pow(10, lufs / 10), 0) / relativeGatedBlocks.length;
-  return 10 * Math.log10(gatedMean);
+  return rms <= 1e-10 ? -100 : 20 * Math.log10(rms);
 }
 
 /**
@@ -171,117 +112,44 @@ export function createWavHeader(dataSize: number, sampleRate: number, channels: 
 }
 
 /**
- * Generates Triangular Probability Density Function (TPDF) dither.
- * Randomizes quantization errors, reduces distortion and creates a stable noise floor for more natural sound.
- * @returns {number} Dither value scaled to ±1 LSB for the target bit depth
- */
-const generateTPDFDither = (): number => {
-  const r1 = Math.random() * 2 - 1;
-  const r2 = Math.random() * 2 - 1;
-  return (r1 + r2) / 2;
-};
-
-/**
- * Applies simple noise shaping to reduce perceived quantization noise.
- * @param {number} sample - Input sample to process
- * @param {number} error - Previous sample's quantization error
- * @returns {number} Processed sample with noise shaping applied
- */
-const applyNoiseShaping = (sample: number, error: number): number => {
-  const shapingCoeff = -1.5;
-  return sample + error * shapingCoeff;
-};
-
-/**
- * Requantizes a PCM sample to a different bit depth with dithering and noise shaping.
- * @param {number} sample - Input PCM sample.
- * @param {BitDepth} inputBitDepth - Original bit depth of the sample
- * @param {BitDepth} targetBitDepth - Desired output bit depth
- * @param {number} previousError - Previous sample's quantization error for noise shaping
- * @returns {Object} Object containing the processed sample and its quantization error
- * @throws {Error} If sample value exceeds the valid range for input bit depth
- */
-export const requantizeSample = (
-  sample: number,
-  inputBitDepth: BitDepth,
-  targetBitDepth: BitDepth,
-  previousError: number = 0
-): { sample: number; error: number } => {
-  if (inputBitDepth == targetBitDepth) {
-    return { sample, error: 0 };
-  }
-
-  const maxInputValue = (1 << (inputBitDepth - 1)) - 1;
-  if (Math.abs(sample) > maxInputValue) {
-    throw new Error(`Sample value exceeds ${inputBitDepth}-bit range`);
-  }
-
-  const bitDifference = inputBitDepth - targetBitDepth;
-
-  if (bitDifference < 0) {
-    return {
-      sample: sample << Math.abs(bitDifference),
-      error: 0,
-    };
-  }
-
-  let processedSample = sample + generateTPDFDither();
-  processedSample = applyNoiseShaping(processedSample, previousError);
-
-  const quantized = Math.round(processedSample / (1 << bitDifference)) * (1 << bitDifference);
-  const currentError = processedSample - quantized;
-
-  const result = Math.max(-maxInputValue, Math.min(maxInputValue, Math.round(processedSample / (1 << bitDifference))));
-
-  return {
-    sample: result,
-    error: currentError,
-  };
-};
-
-/**
- * Requantizes an array of audio samples to a different bit depth.
- * Applies TPDF dithering and noise shaping across the entire array.
- * @param {number[]} samples - Array of input audio samples
- * @param {BitDepth} inputBitDepth - Original bit depth of the samples
- * @param {BitDepth} targetBitDepth - Desired output bit depth
- * @returns {number[]} Array of requantized samples
- */
-export const requantize = (samples: number[], inputBitDepth: BitDepth, targetBitDepth: BitDepth): number[] => {
-  let lastError = 0;
-
-  return samples.map((sample) => {
-    const result = requantizeSample(sample, inputBitDepth, targetBitDepth, lastError);
-    lastError = result.error;
-    return result.sample;
-  });
-};
-
-/**
  * Resamples PCM samples from one sample rate to another.
- * @param {number[]} samples - Array of PCM samples
- * @param {number} inputSampleRate - The sample rate of the input samples
- * @param {number} targetSampleRate - The target sample rate
- * @returns {number[]} Array of resampled PCM samples
+ * @param samples - Array of PCM samples (integers at given bit depth)
+ * @param inputSampleRate - The sample rate of the input samples
+ * @param targetSampleRate - The target sample rate
+ * @param bitDepth - The bit depth of the PCM samples (must be in BIT_DEPTHS)
+ * @returns Array of resampled PCM samples
  */
-export const resample = (samples: number[], inputSampleRate: number, targetSampleRate: number): number[] => {
+export const resample = (
+  samples: number[],
+  inputSampleRate: number,
+  targetSampleRate: number,
+  bitDepth: BitDepth
+): number[] => {
   if (inputSampleRate <= 0 || targetSampleRate <= 0) {
-    throw new Error("Sample rates must be positive");
+    throw new Error("Sample rates must be positive.");
+  }
+
+  if (!BIT_DEPTHS.includes(bitDepth)) {
+    throw new Error(`Invalid bit depth. Allowed values are: ${BIT_DEPTHS.join(", ")}`);
   }
 
   const ratio = targetSampleRate / inputSampleRate;
-  const resampled = [];
+  const outLength = Math.round(samples.length * ratio);
+  const resampled: number[] = new Array(outLength);
 
-  for (let i = 0; i < samples.length * ratio; i++) {
-    const position = i / ratio;
-    const index1 = Math.floor(position);
+  const maxSample = (1 << (bitDepth - 1)) - 1;
+  const minSample = -1 << (bitDepth - 1);
+
+  for (let i = 0; i < outLength; i++) {
+    const sourcePos = i / ratio;
+    const index1 = Math.floor(sourcePos);
     const index2 = Math.min(index1 + 1, samples.length - 1);
+    const alpha = sourcePos - index1;
 
-    const alpha = position - index1;
+    const interpolated = samples[index1] * (1 - alpha) + samples[index2] * alpha;
 
-    const interpolatedValue = samples[index1] * (1 - alpha) + samples[index2] * alpha;
-
-    resampled.push(interpolatedValue);
+    const intSample = Math.round(interpolated);
+    resampled[i] = Math.max(minSample, Math.min(maxSample, intSample));
   }
 
   return resampled;

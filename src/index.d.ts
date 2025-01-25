@@ -1,43 +1,36 @@
-import { BitDepth, Channels } from "./lib/types";
+export type BitDepth = 8 | 16 | 24 | 32 | 48;
+
+export type Channels = 1 | 2;
 
 /**
  * A-Law codec for audio processing.
  */
 export namespace alaw {
-  function decode(samples: Uint8Array | Buffer, targetBitDepth?: BitDepth): Buffer;
-  function decodeSample(aLawSample: number, targetBitDepth?: BitDepth): number;
-  function encode(samples: Buffer | Int16Array, inputBitDepth?: BitDepth): Uint8Array;
-  function encodeSample(sample: number, inputBitDepth?: BitDepth): number;
+  function decodeSample(sample: number): number;
+  function encodeSample(sample: number): number;
+  function decode(samples: Buffer): Int16Array;
+  function encode(samples: Int16Array): Uint8Array;
+  function encodeBuffer(buffer: Buffer): Buffer;
+  function decodeBuffer(buffer: Buffer): Buffer;
 }
 
 /**
  * μ-Law codec for audio processing.
  */
 export namespace mulaw {
-  function decode(samples: Uint8Array | Buffer, targetBitDepth?: BitDepth): Buffer;
-  function decodeSample(muLawSample: number, targetBitDepth?: BitDepth): number;
-  function encode(samples: Buffer | Int16Array, inputBitDepth?: BitDepth): Uint8Array;
-  function encodeSample(sample: number, inputBitDepth?: BitDepth): number;
+  function decodeSample(sample: number): number;
+  function encodeSample(sample: number): number;
+  function decode(samples: Uint8Array): Int16Array;
+  function encode(samples: Int16Array): Uint8Array;
+  function encodeBuffer(buffer: Buffer): Buffer;
+  function decodeBuffer(buffer: Buffer): Buffer;
 }
 
 /**
  * Utility functions for common audio processing tasks.
  */
 export namespace utils {
-  function calculateRms(buffer: Buffer, bitDepth: BitDepth): number;
-  function calculateLufs(buffer: Buffer, bitDepth: BitDepth, sampleRate: number): number;
+  function calculateLoudness(buffer: Buffer, bitDepth: BitDepth): number;
   function createWavHeader(dataSize: number, sampleRate: number, channels: Channels, bitDepth: BitDepth): Buffer;
-  function requantizeSample(
-    sample: number,
-    inputBitDepth: BitDepth,
-    targetBitDepth: BitDepth,
-    previousError: number
-  ): { sample: number; error: number };
-  function requantize(samples: number[], inputBitDepth: BitDepth, targetBitDepth: BitDepth): number[];
-  function resample(samples: number[], inputSampleRate: number, targetSampleRate: number): number[];
-}
-
-export namespace types {
-  type BitDepth = 8 | 16 | 24 | 32 | 48;
-  type Channels = 1 | 2;
+  function resample(samples: number[], inputSampleRate: number, targetSampleRate: number, bitDepth: BitDepth): number[];
 }
