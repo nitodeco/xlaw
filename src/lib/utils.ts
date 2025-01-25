@@ -38,26 +38,32 @@ export function calculateLoudness(buffer: Buffer, bitDepth: number): number {
   const numSamples = buffer.length / bytesPerSample;
   let sumOfSquares = 0;
 
-  const TypedArray = {
-    8: Int8Array,
-    16: Int16Array,
-    32: Int32Array,
-  }[bitDepth];
+  for (let i = 0; i < numSamples; i++) {
+    const offset = i * bytesPerSample;
+    let sample: number;
 
-  if (TypedArray) {
-    const samples = new TypedArray(buffer.buffer, buffer.byteOffset, numSamples);
-    for (let i = 0; i < samples.length; i++) {
-      const normalized = samples[i] / maxValue;
-      sumOfSquares += normalized * normalized;
+    switch (bitDepth) {
+      case 8:
+        sample = buffer[offset];
+        if (sample & 0x80) sample = sample - 256;
+        break;
+      case 16:
+        sample = buffer[offset] | (buffer[offset + 1] << 8);
+        if (sample & 0x8000) sample = sample - 65536;
+        break;
+      case 24:
+        sample = buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
+        if (sample & 0x800000) sample = sample | ~0xffffff;
+        break;
+      case 32:
+        sample = buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24);
+        break;
+      default:
+        throw new Error(`Unsupported bit depth: ${bitDepth}`);
     }
-  } else {
-    for (let i = 0; i < numSamples; i++) {
-      const offset = i * bytesPerSample;
-      let sample = buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
-      if (sample & 0x800000) sample = sample | ~0xffffff;
-      const normalized = sample / maxValue;
-      sumOfSquares += normalized * normalized;
-    }
+
+    const normalized = sample / maxValue;
+    sumOfSquares += normalized * normalized;
   }
 
   const rms = Math.sqrt(sumOfSquares / numSamples);
