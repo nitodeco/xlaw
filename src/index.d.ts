@@ -1,4 +1,4 @@
-import { BitDepth } from "./lib/types";
+import { BitDepth, Channels } from "./lib/types";
 
 /**
  * A-Law codec for audio processing.
@@ -26,14 +26,15 @@ export namespace mulaw {
 export namespace utils {
   function calculateRms(buffer: Buffer, bitDepth: BitDepth): number;
   function calculateLufs(buffer: Buffer, bitDepth: BitDepth, sampleRate: number): number;
-  function resample(samples: number[], inputSampleRate: number, targetSampleRate: number): number[];
-  function requantize(
+  function createWavHeader(dataSize: number, sampleRate: number, channels: Channels, bitDepth: BitDepth): Buffer;
+  function requantizeSample(
     sample: number,
     inputBitDepth: BitDepth,
     targetBitDepth: BitDepth,
     previousError: number
   ): { sample: number; error: number };
-  function requantizeSamples(samples: number[], inputBitDepth: BitDepth, targetBitDepth: BitDepth): number[];
+  function requantize(samples: number[], inputBitDepth: BitDepth, targetBitDepth: BitDepth): number[];
+  function resample(samples: number[], inputSampleRate: number, targetSampleRate: number): number[];
 }
 
 export namespace types {
