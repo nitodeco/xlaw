@@ -199,7 +199,7 @@ export const requantizeSample = (
   previousError = 0
 ): { sample: number; error: number } => {
   if (inputBitDepth == targetBitDepth) {
-    throw new Error("Input and target bit depths must be different");
+    return { sample, error: 0 };
   }
 
   const maxInputValue = (1 << (inputBitDepth - 1)) - 1;
