@@ -78,12 +78,12 @@ export function decodeSample(aLawSample: number, targetBitDepth: BitDepth = 16):
 }
 
 /**
- * Encodes an array of PCM samples to 8-bit A-Law samples.
- * @param {Int16Array} samples - Array of PCM samples to encode
+ * Encodes an array of PCM samples or a PCM buffer to 8-bit A-Law samples.
+ * @param {Buffer | Int16Array} samples - Array of PCM samples to encode
  * @param {BitDepth} inputBitDepth - The bit depth of the input samples (default: 16)
  * @returns {Uint8Array} Array of encoded 8-bit A-Law samples
  */
-export function encode(samples: Int16Array, inputBitDepth: BitDepth = 16): Uint8Array {
+export function encode(samples: Buffer | Int16Array, inputBitDepth: BitDepth = 16): Uint8Array {
   const aLawSamples: Uint8Array = new Uint8Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
     aLawSamples[i] = encodeSample(samples[i], inputBitDepth);
@@ -92,15 +92,27 @@ export function encode(samples: Int16Array, inputBitDepth: BitDepth = 16): Uint8
 }
 
 /**
- * Decodes an array of 8-bit A-Law samples to PCM samples.
+ * Decodes an array of 8-bit A-Law samples to a PCM buffer.
  * @param {Uint8Array} samples - Array of 8-bit A-Law samples to decode
  * @param {BitDepth} targetBitDepth - The target bit depth of the output (default: 16)
- * @returns {Int16Array} Array of decoded PCM samples
+ * @returns {Buffer} Buffer containing decoded PCM samples at specified bit depth
  */
-export function decode(samples: Uint8Array, targetBitDepth: BitDepth = 16): Int16Array {
-  const pcmSamples: Int16Array = new Int16Array(samples.length);
-  for (let i = 0; i < samples.length; i++) {
-    pcmSamples[i] = decodeSample(samples[i], targetBitDepth);
+export function decode(samples: Uint8Array | Buffer, targetBitDepth: BitDepth = 16): Buffer {
+  if (samples instanceof Buffer) {
+    try {
+      samples = new Uint8Array(samples);
+    } catch (error) {
+      throw new Error("Invalid input buffer, must be 8 bit A-Law");
+    }
   }
-  return pcmSamples;
+
+  const bytesPerSample = Math.ceil(targetBitDepth / 8);
+  const buffer = Buffer.alloc(samples.length * bytesPerSample);
+
+  for (let i = 0; i < samples.length; i++) {
+    const decodedSample = decodeSample(samples[i], targetBitDepth);
+    buffer.writeIntLE(decodedSample, i * bytesPerSample, bytesPerSample);
+  }
+
+  return buffer;
 }
